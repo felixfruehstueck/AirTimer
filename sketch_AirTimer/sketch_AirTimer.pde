@@ -156,6 +156,10 @@ void setup() {
    }
  }
  
+void setMinutes(int minutes){
+  timerMinutes = (minutes >= 60) ? 60 : minutes;
+}
+ 
 void inputActionHandler(String action){
   
   if(action == "increase"){
@@ -266,6 +270,16 @@ void draw() {
     break;
   }
   
+  for (Hand hand : leap.getHands ()) {
+    hand.draw();
+    Finger fingerIndex = hand.getIndexFinger();
+    
+   if(appStateMain == 3){
+     println("setting minutes to: " + (int)fingerIndex.getPosition().x / 10);
+      //setMinutes((int)fingerIndex.getPosition().x / 7);
+    }
+  }
+  
 /*-------------------------
  INTERACTION
  -------------------------*/
@@ -284,7 +298,7 @@ void draw() {
       previousPosition = currentPosition;
     }
   }
-} /* end of draw */
+}
 
 void printStatus(String status){
   noStroke();
