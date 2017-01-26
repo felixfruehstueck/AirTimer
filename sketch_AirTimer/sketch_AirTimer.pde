@@ -69,6 +69,7 @@ globalTimerStatus
 
 // input
 LeapMotion leap;
+int leapDelay;
 
 // virtual ring setup
 float lg_diam;
@@ -109,6 +110,10 @@ void setup() {
   // prepare 60 LEDs
   LEDs = new LED[60];
   
+  // init leap
+  leap = new LeapMotion(this).allowGestures();
+  leapDelay = 30;
+  
   // create simulaton
   lg_diam =  550; // large circle's diameter
   lg_rad  = lg_diam/2; // large circle's radius
@@ -118,9 +123,6 @@ void setup() {
   for (int i = 0; i < LEDs.length; ++i) {
     LEDs[i] = new LED(i);
   }
-
-  // reference the leap motion device
-  leap = new LeapMotion(this);
   
   //draw 60 LEDs
   for (int i = 0; i < LEDs.length; ++i) {
@@ -147,6 +149,10 @@ void setup() {
    
    if(key == 'l'){
      inputActionHandler("decrease");
+   }
+   
+   if(key == 'f'){
+     inputActionHandler("flick");
    }
  }
  
@@ -186,6 +192,13 @@ void inputActionHandler(String action){
       appStateMain = 2;
     }else{
       appStateMain++;
+    }
+    
+    if (action == "flick") {
+    
+      if(appStateMain == 6 || appStateMain == 7){
+        appStateMain = 2;
+      }
     }
     
     println("punched, switched to appStateMain " + appStateMain);
@@ -256,6 +269,10 @@ void draw() {
 /*-------------------------
  INTERACTION
  -------------------------*/
+ 
+ if(leapDelay > 0){
+   leapDelay--;
+ }
 
   for (Hand hand : leap.getHands()) {
     //hand.draw();
@@ -430,5 +447,49 @@ public void stepAlarm(){
     if(animationCounter >= 60){
       animationCounter = 1;
     }
+  }
+}
+
+
+
+/*
+-------
+LEAP
+-------
+*/
+void leapOnSwipeGesture(SwipeGesture g, int state){
+  int     id               = g.getId();
+  Finger  finger           = g.getFinger();
+  PVector position         = g.getPosition();
+  PVector positionStart    = g.getStartPosition();
+  PVector direction        = g.getDirection();
+  float   speed            = g.getSpeed();
+  long    duration         = g.getDuration();
+  float   durationSeconds  = g.getDurationInSeconds();
+
+  switch(state){
+    case 1: // Start
+      break;
+    case 2: // Update
+      break;
+    case 3: // Stop
+      println("SwipeGesture: " + id);
+      //inputActionHandler("punch");
+      break;
+  }
+}
+
+void leapOnKeyTapGesture(KeyTapGesture g){
+  int     id               = g.getId();
+  Finger  finger           = g.getFinger();
+  PVector position         = g.getPosition();
+  PVector direction        = g.getDirection();
+  long    duration         = g.getDuration();
+  float   durationSeconds  = g.getDurationInSeconds();
+
+  if(leapDelay == 0){
+    println("PUNCH!!! ------------------- " + id);
+    inputActionHandler("punch");
+    leapDelay = 30;
   }
 }
