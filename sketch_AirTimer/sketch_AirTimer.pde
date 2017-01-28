@@ -124,11 +124,6 @@ void setup() {
     LEDs[i] = new LED(i);
   }
 
-  //draw 60 LEDs
-  for (int i = 0; i < LEDs.length; ++i) {
-    LEDs[i] = new LED(i);
-  }
-
   // set app to "waiting"
   appStateMain = 1;
 }
@@ -206,9 +201,17 @@ void inputActionHandler(String action) {
 
   if (action == "punch") {
 
-    if (appStateMain == 6) {
-      appStateMain = 5;
-    } else if (appStateMain == 7) {
+    // usually, punch goes to next higher status (appState Main +1).
+    // EXCEPTIONS: 
+    // 5 (paused) --> go back to 4 (running)
+    // 6 (alarm) --> go back to 2 (startup animation)
+    // NOTE:
+    // 2 (animation) will end after 1 second and go to 3 (adjust) automatically
+    // 4 (running) will end automatically and go to 6 (alam) when counter reaches zero.
+    
+    if (appStateMain == 5) {
+      appStateMain = 4;
+    } else if (appStateMain == 6) {
       appStateMain = 2;
     } else {
       appStateMain++;
@@ -221,7 +224,7 @@ void inputActionHandler(String action) {
       }
     }
 
-    println("punched, switched to appStateMain " + appStateMain);
+    println("- - - appStateMain = " + appStateMain + "- - -");
   }
 }
 
@@ -254,49 +257,29 @@ void draw() {
     stepStart();
     break;
 
-    // device start completed, wait for minutes adjustment 
+    // device start completed, wait for time adjustment 
   case 3:
     //have a break
-    printStatus("minutes?");
+    printStatus("time?");
     stepAdjust();
     break;
 
-    // setup of minutes completed, wait for seconds adjumstnet
-  case 4:
-    printStatus("seconds?");
-    //stepAdjust(); now integrated in 3
-    break;
-
     // timer is running (counting backwards)
-  case 5:
+  case 4:
     printStatus(((timerMinutes < 10) ? "0" : "") + timerMinutes + ":" + ((timerSeconds < 10) ? "0" : "") + timerSeconds);
     stepRun();
     break;
 
     // timer is paused (holding current time)
-  case 6:
+  case 5:
     printStatus(((timerMinutes < 10) ? "0" : "") + timerMinutes + ":" + ((timerSeconds < 10) ? "0" : "") + timerSeconds + " - paused");
     break;
 
     // timer reached 0 and plays alarm
-  case 7:
+  case 6:
     printStatus("Piep!");
     stepAlarm();
     break;
-  }
-
-  for (Hand hand : leap.getHands ()) {
-    hand.draw();
-    Finger fingerIndex = hand.getIndexFinger();
-
-    if (appStateMain == 3) {
-      println(fingerIndex.getPosition().z + " / " + (int)fingerIndex.getPosition().z  + " / " + (int(fingerIndex.getPosition().z / 3)));
-      
-      //setMinutes((int)(fingerIndex.getPosition().x / 8));
-      setSeconds((int)(fingerIndex.getPosition().z / 2));
-      
-      setMinutes((int) map(fingerIndex.getPosition().x, 10, 990, 0, 59));
-    }
   }
 
   /*-------------------------
@@ -392,19 +375,22 @@ void stepAdjust() {
    LEDs[j].setToWhite();
    }
    */
-
-  //draw color for minutes 
-  for (int i = 0; i < timerMinutes; i++) {
-    LEDs[i].setColor(0, 255, 255);
+   
+  for (Hand hand : leap.getHands ()) {
+    hand.draw();
+    Finger fingerIndex = hand.getIndexFinger();
+    
+    if (appStateMain == 3) {
+      println(fingerIndex.getPosition().z + " / " + (int)fingerIndex.getPosition().z  + " / " + (int(fingerIndex.getPosition().z / 3)));
+      
+      //setMinutes((int)(fingerIndex.getPosition().x / 8));
+      setSeconds((int)(fingerIndex.getPosition().z / 2));
+      
+      setMinutes((int) map(fingerIndex.getPosition().x, 10, 990, 0, 59));
+    }
   }
 
-  //draw white for the rest of the circle
-  for (int j = timerMinutes; j < 60; j++) {
-    LEDs[j].setColor(0, 0, 255);
-  }
-
-  //draw color for seconds
-  LEDs[timerSeconds].setColor(100, 255, 255);
+  drawTimeOnRing(timerMinutes, timerSeconds);
 }
 
 public void listen() {
@@ -412,16 +398,16 @@ public void listen() {
 }
 
 // showing the remaining time on the ring
-// this is called every frame as long as appStateMain is 5 (running) or 6 (paused)
+// this is called every frame as long as appStateMain is 4 (running) or 5 (paused)
 public void stepRun() {
 
-  if (appStateMain == 5) {
+  if (appStateMain == 4) {
     timerCurrentFrame--;
     if (timerCurrentFrame < 0) {
       timerCurrentFrame = 59;
       timerSeconds--;
       if (timerMinutes == 0 && timerSeconds == 0) {
-        appStateMain = 7;
+        appStateMain = 6;
       } 
       if (timerSeconds < 0) {
         timerSeconds = 59;
@@ -430,41 +416,11 @@ public void stepRun() {
     }
   }
 
-  if (timerMinutes > 0) {
-
-    //draw color for minutes 
-    for (int i = 0; i < timerMinutes; i++) {
-      LEDs[i].setColor(0, 255, 255);
-    }
-
-    //draw white for the rest of the circle
-    for (int j = timerMinutes; j < 60; j++) {
-      LEDs[j].setColor(0, 0, 255);
-    }
-
-    //draw color for seconds
-    LEDs[timerSeconds].setColor(100, 255, 255);
-  } else {
-
-    //draw color for seconds 
-    for (int i = 0; i < timerSeconds; i++) {
-      LEDs[i].setColor(100, 255, 255);
-    }
-
-    //draw white for the rest of the circle
-    for (int j = timerSeconds; j < 60; j++) {
-      LEDs[j].setColor(0, 0, 255);
-    }
-  }
-
-
-
-  //draw cool pointer for current 1/60 second
-  LEDs[timerCurrentFrame].setColor(120, 255, 255);
+  drawTimeOnRing(timerMinutes, timerSeconds);
 }
 
 // alarm function to call when countdown reached 0
-// this is called every frame as long as appStatemain is 7
+// this is called every frame as long as appStatemain is 6
 
 public void stepAlarm() {
 
@@ -482,7 +438,7 @@ public void stepAlarm() {
       // animation increases from 0 to 255 in 60 steps:
       animationHelper = int(lerp(0, 255, (float)animationCounter/60));
 
-      //draw color for minutes 
+      //draw full circle
       for (int i = 0; i < 60; i++) {
         LEDs[i].setColor(255, animationHelper, 255);
       }
@@ -536,4 +492,49 @@ void leapOnKeyTapGesture(KeyTapGesture g) {
     inputActionHandler("punch");
     leapDelay = 30;
   }
+}
+
+// DISPLAY ONLY
+// --> this function does not modify ANY variables
+void drawTimeOnRing(int minutes, int seconds){
+  
+  // at least 1 minute left, for example 6:42 ?
+  // --> draw 6 red LEDs for minutes (permanently)
+  // --> draw 1 single green LED at position 42 for seconds
+  if (minutes > 0) {
+
+    //draw color for minutes 
+    for (int i = 0; i < minutes; i++) {
+      LEDs[i].setColor(0, 255, 255);
+    }
+
+    //draw white for the rest of the circle
+    for (int j = minutes; j < 60; j++) {
+      LEDs[j].setColor(0, 0, 255);
+    }
+
+    //draw color for seconds
+    LEDs[seconds].setColor(100, 255, 255);
+    
+  } 
+  
+  // only seconds left, for example 00:32 ?
+  // --> draw 32 green LEDs for seconds
+  else {
+
+    //draw color for seconds 
+    for (int i = 0; i < timerSeconds; i++) {
+      LEDs[i].setColor(100, 255, 255);
+    }
+
+    //draw white for the rest of the circle
+    for (int j = timerSeconds; j < 60; j++) {
+      LEDs[j].setColor(0, 0, 255);
+    }
+  }
+
+  //draw cool pointer for current 1/60 second
+  LEDs[timerCurrentFrame].setColor(120, 255, 255);
+
+
 }
