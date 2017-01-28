@@ -8,11 +8,10 @@ stores the current state ID of the app
 * `0` - off - when the app is not initialized
 * `1` - standby - when the app is running without further input
 * `2` - starting - interim state during startup (animation)
-* `3` - while adjusting minutes
-* `4` - while adjusting seconds
-* `5` - timer running / counting down
-* `6` - timer paused / count down on hold
-* `7` - timer reached 0 / alarm
+* `3` - while adjusting minutes and seconds
+* `4` - timer running / counting down
+* `5` - timer paused / count down on hold
+* `6` - timer reached 0 / alarm
 
 ### `timer*`
 ```
