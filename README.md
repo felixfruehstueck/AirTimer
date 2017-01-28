@@ -6,8 +6,8 @@
 ### `int appStateMain`
 stores the current state ID of the app
 * `0` - off - when the app is not initialized
-* `1` - standby - when the app is running without further input
-* `2` - starting - interim state during startup (animation)
+* `1` - standby - app is initialized, but currently inactive.
+* `2` - starting - interim state during startup (animation, 1 second)
 * `3` - while adjusting minutes and seconds
 * `4` - timer running / counting down
 * `5` - timer paused / count down on hold
