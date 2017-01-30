@@ -69,7 +69,9 @@ import org.gicentre.utils.move.Ease;
 
 // input
 LeapMotion leap;
-int leapDelay;
+int leapPunchDetectorDelay;
+int leapPunchDelay;
+float[] leapHandTracker;
 
 // virtual ring setup
 float lg_diam;
@@ -112,7 +114,8 @@ void setup() {
 
   // init leap
   leap = new LeapMotion(this).allowGestures();
-  leapDelay = 30;
+  leapHandTracker = new float[5];
+  leapPunchDelay = leapPunchDetectorDelay = millis();
 
   // create simulaton
   lg_diam =  550; // large circle's diameter
@@ -177,12 +180,10 @@ void inputActionHandler(String action) {
     if (appStateMain == 3) {
       //increase minutes
       timerMinutes = (timerMinutes >= 60) ? 60 : timerMinutes +1;
-      println("increased m: " + timerMinutes);
     }
     if (appStateMain == 4) {
       //increase seconds
       timerSeconds = (timerSeconds >= 60) ? 60 : timerSeconds +1;
-      println("increased s: " + timerSeconds);
     }
   }
 
@@ -190,12 +191,10 @@ void inputActionHandler(String action) {
     if (appStateMain == 3) {
       //decrease minutes
       timerMinutes = (timerMinutes <= 0) ? 0 : timerMinutes -1;
-      println("decreased m: " + timerMinutes);
     }
     if (appStateMain == 4) {
       //decrease seconds
       timerSeconds = (timerSeconds <= 0) ? 0 : timerSeconds -1;
-      println("decreased s: " + timerSeconds);
     }
   }
 
@@ -224,7 +223,7 @@ void inputActionHandler(String action) {
       }
     }
 
-    println("- - - appStateMain = " + appStateMain + "- - -");
+    println(">> appStateMain = " + appStateMain);
   }
 }
 
@@ -254,20 +253,20 @@ void draw() {
     // device was activated, show startup animation
   case 2:
     printStatus("starting");
-    stepStart();
+    //stepStart();
     break;
 
     // device start completed, wait for time adjustment 
   case 3:
     //have a break
     printStatus("time?");
-    stepAdjust();
+    //stepAdjust();
     break;
 
     // timer is running (counting backwards)
   case 4:
     printStatus(((timerMinutes < 10) ? "0" : "") + timerMinutes + ":" + ((timerSeconds < 10) ? "0" : "") + timerSeconds);
-    stepRun();
+    //stepRun();
     break;
 
     // timer is paused (holding current time)
@@ -278,7 +277,7 @@ void draw() {
     // timer reached 0 and plays alarm
   case 6:
     printStatus("Piep!");
-    stepAlarm();
+    //stepAlarm();
     break;
   }
 
@@ -286,20 +285,92 @@ void draw() {
    INTERACTION
    -------------------------*/
 
-  if (leapDelay > 0) {
-    leapDelay--;
-  }
+  
+  punchDetector();
+}
 
-  for (Hand hand : leap.getHands()) {
-    //hand.draw();
-
-    // 0 - 59: 60 LEDs on my NeoPixel Ring
-    currentPosition = (int) map(hand.getPosition().x, 10, 990, 0, 59);
-
-    if (previousPosition != currentPosition) {
-      previousPosition = currentPosition;
+// permanently check leap motion input for punch gesture
+// it saves the height of the stabilizedHand to an array
+// in that array, the last 5 positions are kept
+// if there is a difference in height >60, this is considered a punch gesture
+boolean punchDetector(){
+  
+  // this should not be checked every frame
+  // but only every 10 milliseconds
+  
+  if(leapPunchDetectorDelay < millis() - 100){
+    
+    leapPunchDetectorDelay = millis();
+    
+    for (Hand hand : leap.getHands()) {
+      
+      PVector handStabilized = hand.getStabilizedPosition();
+      
+      int handLow = 1000;
+      int handHigh = 0;
+      
+      for(int i = 4; i >= 0; i--){
+        if(i == 0){
+          leapHandTracker[i] = handStabilized.y;
+          println(i + " " + handStabilized.y);
+        }
+        // on position 1-4, store positions of last 4 frames
+        else{
+          leapHandTracker[i] = leapHandTracker[i-1];
+          println(i + " " + leapHandTracker[i-1]);
+        }
+      }
+    
     }
   }
+   /* 
+    println(" ");
+    println("- - - -");
+    
+    leapPunchDetectorDelay = millis();
+    
+    for (Hand hand : leap.getHands()) {
+      
+      PVector handStabilized = hand.getStabilizedPosition();
+      
+      for(int i = leapHandTracker.length-1; i >= 0; i--){
+        // on position 0, store current position
+        if(i == 0){
+          leapHandTracker[i] = handStabilized.y;
+          println(handStabilized.y);
+        }
+        // on position 1-4, store positions of last 4 frames
+        else{
+            leapHandTracker[i] = leapHandTracker[i-1];
+            println(leapHandTracker[i-1]);
+        }
+        
+        // now that we have the current + the last 4 states in the array
+        // check if there is a difference > 60 between any of them
+        if(leapHandTracker[i] > handStabilized.y + 60){
+          if(leapPunchDelay < millis() - 100){
+            println("detected but ignored due to delay.");
+          }else{
+            println(" ");
+            println("!!!!!PUNCH!!!!! > " + leapHandTracker[i] + " <> " + handStabilized.y);
+            println(" ");
+            // avoid multiple triggering
+            leapPunchDelay = millis();
+          }
+        }
+      }
+    }
+    
+    
+    
+    // remember highest position of hand
+    if(leapHandTracker < hand.getStabilizedPosition().y){
+      leapHandTracker = hand.getStabilizedPosition().y;
+    }
+    */
+    
+  
+  return true;
 }
 
 void printStatus(String status) {
@@ -391,6 +462,7 @@ void stepAdjust() {
   }
 
   drawTimeOnRing(timerMinutes, timerSeconds);
+  background(255);
 }
 
 public void listen() {
@@ -457,6 +529,8 @@ public void stepAlarm() {
  LEAP
  -------
  */
+ 
+ /*
 void leapOnSwipeGesture(SwipeGesture g, int state) {
   int     id               = g.getId();
   Finger  finger           = g.getFinger();
@@ -493,6 +567,7 @@ void leapOnKeyTapGesture(KeyTapGesture g) {
     leapDelay = 30;
   }
 }
+*/
 
 // DISPLAY ONLY
 // --> this function does not modify ANY variables
