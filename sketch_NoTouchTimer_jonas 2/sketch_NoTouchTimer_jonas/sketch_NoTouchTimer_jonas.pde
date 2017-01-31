@@ -1,3 +1,7 @@
+import de.voidplus.leapmotion.*;
+import processing.serial.*; 
+import org.gicentre.utils.move.Ease;
+
 /*-------------------------
  To Dos
  -------------------------
@@ -11,31 +15,7 @@ Gesten starten und enden je nach Bewegung bzw. Stillstand der Hand/Finger
 
 (leap motion mit LED ring verheiraten)
 
-# Push
-+ wake up
-+ start timer
-+ pause timer
-+ sleep
 
-Circle
-+ to right: add minutes
-- to left: substract minutes
-
-Rotate
-+ to right: add seconds
-+ to left: substract seconds
-
-Flick
-+ to left: reset
-+ to right: resume
-
-Animations(Colors tbd):
-Full Circle Fade In
-Timer Information counting & Timer Information paused
-  Minutes
-  Seconds
-Circle Flash
-Full Circle Fade Out
 
 
 // Felix
@@ -62,14 +42,6 @@ Timer wenn abgelaufen rückwärts zählen lassen, um User die ÜBerlaufzeit mitz
  VARS
  -------------------------*/
 
-// leap + arduino init
-import de.voidplus.leapmotion.*;
-import processing.serial.*; 
-import org.gicentre.utils.move.Ease;
-
-Serial port;
-LeapMotion leap;
-
 /*---- status helpers -----
 
 int globalStatus
@@ -95,13 +67,14 @@ globalTimerStatus
 
 ---------------------------*/
 
-// virtual ring setup
-float lg_diam =  750; // large circle's diameter
-float lg_rad  = lg_diam/2; // large circle's radius
-float lg_circ =  PI * lg_diam; // large circumference
-float LEDs = 60;
-float sm_diam = (lg_circ / LEDs); // small circle's diameter
+// ports
+Serial port;
+LeapMotion leap;
 
+// virtual ring setup
+RingManager ringManager;
+
+// current program status
 int globalStatus = 0;
 int globalAnimationDuration = 0;
 String globalAnimationType = "";
@@ -124,32 +97,31 @@ int animationRunning = 0;
 // timer variable <-- !important!
 //int runTime = 448; // 108 seconds = 4 minutes, 48 seconds
 
-LED SingleLED;
-LED[] allLED = new LED[60];
-
 int previousPosition = 0;
 int currentPosition = 0;
 
 
-/*-------------------------
- SETUP
- -------------------------*/
+/*
+ * -------------------------
+ *  SETUP
+ * -------------------------
+ */
 
 void setup() {
-  size(800, 800, P3D);
+  size(500, 500, P3D);
   background(255);
   colorMode(HSB, 255);
   frameRate(60);
+  
+  //printArray(Serial.list());
 
-  leap = new LeapMotion(this);
-  println(Serial.list());
-  port = new Serial(this, Serial.list()[1], 9600);
+  //leap = new LeapMotion(this);
+  //port = new Serial(this, Serial.list()[0], 9600);
+  
+  
+  // initialize the RingManager
+  ringManager = new RingManager();
 
-  //draw 60 LEDs
-  for (int i = 0; i < LEDs; ++i) {
-    allLED[i] = new LED(i);
-  }
-  println("LEDs created successfully.");
 }
 
 /*-------------------------
@@ -161,10 +133,9 @@ void setup() {
      inputActionHandler("punch");
    }
  }
-
  
-
 /* TODO: map gestures to inputActionHandler
+
 void motionRecognized() {
    if(gesture == XYZ){
      inputActionHandler("punch");
@@ -176,12 +147,10 @@ void motionRecognized() {
   if (action == "punch") {
     // if sleeping, animate
     if(globalStatus == 0){
-      globalAnimationType = "fade";
-      globalAnimationDuration = 60;
-      globalAnimationEndAction = 2;
-      globalStatus = 1;
+      ringManager.setAnimation("fade", 2);
     }
     
+    /*
     //if listening, start
     else if(globalStatus == 2){
       println ("punched, globalstatus " + globalStatus);
@@ -204,50 +173,19 @@ void motionRecognized() {
       globalTimerStatus = 1; // go!
       globalStatus = 3;
     }
+    */
     
   }
 }
 
-/*-------------------------
- DRAW
- -------------------------*/
 
-void draw() {
-  background(255);
-  //decide what currently needs to be done
-  switch (globalStatus) {
-  default:
-    //waiting
-    //println ("waiting...");p
-    break;
-  case 1:
-    //showing an animation
-    println("globalStatus = 1 - animating...");
-    animateLEDs();
-    break;
-  case 2:
-    //counting down
-    print ("2 - listening...");
-    listen();
-    break;
-   case 3:
-    //counting down
-    println("globalStatus = 3 - counting...");
-    runLEDs();
-    break;
-   case 4:
-    //have a break
-    println("globalStatus = 4 - paused...");
-    runLEDs();
-    break;
-  }
 
 /*-------------------------
- INTERACTION inside of draw
- -------------------------*/
+ INTERACTION
+ -------------------------
 
   for (Hand hand : leap.getHands()) {
-    hand.draw();
+    //hand.draw();
     
     // 0 - 59: 60 LEDs on my NeoPixel Ring
     currentPosition = (int) map(hand.getPosition().x, 10, 990, 0, 59);
@@ -257,75 +195,15 @@ void draw() {
       port.write(previousPosition);
     }
   }
-} /* end of draw */
+}
 
 
 
-/*-------------------------
+-------------------------
  FUNCTIONALITY
  -------------------------*/
 
 
-boolean animateLEDs() {
-  
-  /*
-  globalAnimationType = "fade";
-  globalAnimationDuration = 120;
-  globalAnimationEndAction = 2;
-  */
-  
-  // make sure this ends some time
-  globalAnimationDuration--;
-  
-  // if end is reached, check which action should be next
-  if (globalAnimationDuration <=0) {
-    globalStatus = globalAnimationEndAction;
-    println ("end of aimation reached, switching to status " + globalStatus);
-  }
-  
-  int saturation = globalAnimationDuration;
-  
-  for (int j = 0; j < 60; j++) {
-    allLED[j].setColor(0, saturation, 255);
-  }
-  
-  return true;
-}
-
 public void listen(){
   // do nothing, wait for hand input
-}
-
-public void runLEDs() {
-  
-  if(globalTimerStatus == 1){
-    globalCurrentFrame--;
-    if (globalCurrentFrame==0) {
-      globalCurrentFrame = 59;
-      if (globalCurrentFrame > 0) globalTimer--;
-    }
-  }
-
-  //get number of full minutes currently left
-  minutes = (int) Math.floor(globalTimer /60);
-  seconds = globalTimer % 60;
-
-  //draw color for minutes 
-  for (int i = 0; i < minutes; i++) {
-    allLED[i].setColor(0, 255, 255);
-  }
-
-  //draw white for the rest of the circle
-  for (int j = minutes; j < 60; j++) {
-    allLED[j].setColor(0, 0, 255);
-  }
-
-  //draw color for seconds
-  allLED[seconds].setColor(100, 255, 255);
-  port.write(seconds);
-  println(seconds);
-
-  //draw cool pointer for current 1/60 second
-  //-->also, this keeps "currentFrame" from jumping/skipping!!!
-  allLED[globalCurrentFrame].setColor(120, 255, 255);
 }

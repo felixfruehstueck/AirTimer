@@ -105,7 +105,7 @@ void setup() {
 
   // set the stage
   size(600, 600, P3D);
-  background(255);
+  background(25);
   colorMode(HSB, 255);
   frameRate(60);
 
@@ -298,9 +298,9 @@ boolean punchDetector(){
   // this should not be checked every frame
   // but only every 10 milliseconds
   
-  int handLow = 1000;
-  int handHigh = 0;
   
+  //vorherige zeit < jetzige zeit minus hundert
+  //ist die letzte ausführung 100 ms her? -> dann neu! 
   if(leapPunchDetectorDelay < millis() - 100){
     
     leapPunchDetectorDelay = millis();
@@ -317,27 +317,24 @@ boolean punchDetector(){
         // on position 1-4, store positions of last 4 frames
         else{
           leapHandTracker[i] = leapHandTracker[i-1];
-          println(i + " " + leapHandTracker[i-1]);
+          println(i + " " + leapHandTracker[i]);
         }
       }
-    
-    }
+        println("---------");
     
     //compare values in the array
-    for (int i=0; i<5; i++){
-      if(leapHandTracker[i] != 0f && leapHandTracker[i] > handHigh)
-        handHigh = (int)leapHandTracker[i];
-        
-      if(leapHandTracker[i] != 0f && leapHandTracker[i] < handLow)
-        handLow = (int)leapHandTracker[i];
-    }
-    
-    println("highest: " + (int)handHigh + " / lowest: " + (int)handLow);
-    
-    if((handHigh - handLow) > 150){
-      println("PUNCH!!!!Punch!!!!PUNCH!!!!");
-      for (int i=0; i<5; i++){
-        leapHandTracker[i] = 0f;
+    //only if array is fully set
+    if(leapHandTracker[4] !=0){
+      for (int i=0; i<5; i++){ 
+        //der jüngste muss kleiner sein als einer der vorherigen 4
+        if(leapHandTracker[0] + 150 < leapHandTracker[i]){
+          println("PUNCH!!!!Punch!!!!PUNCH!!!!");
+          for (int j=0; j<5; j++){
+            leapHandTracker[j] = 0f;
+          }
+      }
+        }
+          
       }
     }
   }
