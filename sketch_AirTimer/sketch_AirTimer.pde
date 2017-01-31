@@ -1,71 +1,5 @@
-/*-------------------------
- To Dos
- -------------------------
- 
- // Jonas
- Gesten an Processing schicken --> Punch als Test
- Processing soll Gesten erkennen, evtl. zusätzl. Library bzw. selbst gestalten
- siehe auskommentierte Fkt motionRecognized()
- 
- Gesten starten und enden je nach Bewegung bzw. Stillstand der Hand/Finger
- 
- (leap motion mit LED ring verheiraten)
- 
- 
- 
- 
- // Felix
- 
- 1) Grundlage: Arduino ansprechen - was kann er managen?
- Vor allem, was kriegt der Serielle Port pro Sekunde hin? (Binär-Zerlegung notwendig??!)
- 
- Darauf basierend 2 Klassen schreiben:
- 
- 2a) Bildschirm-Simulation
- Gepimpte LED-Klasse, die Kommandos versteht ("Blinke 2 Sekunden!")
- 
- 2b) Arduino + Ring
- Gleiche Funktion wie 2A aber auf Arduino
- 
- // Notizen 
- 
- Timer wenn abgelaufen rückwärts zählen lassen, um User die ÜBerlaufzeit mitzuteilen.
- 
- 
- */
-
-/*-------------------------
- VARS
- -------------------------*/
-
-// SDKs + libraries
 import de.voidplus.leapmotion.*;
 import org.gicentre.utils.move.Ease;
-
-/*---- status helpers ----- 
- 
- int globalStatus
- // 0 = sleep
- // 1 = animate
- // 2 = listen
- // 3 = run
- // 4 = pause
- 
- globalAnimation
- // int globalAnimationDuration = duration of animation sequence, in frames
- // int globalAnimationEndAction = action to trigger on end
- 
- Auf Arduino SEite:
- // int globalAnimationType 
- // 0 = fade in + out
- // 1 = blink
- 
- globalTimer
- globalTimerStatus 
- // 0 = paused
- // 1 = running
- 
- ---------------------------*/
 
 // input
 LeapMotion leap;
@@ -142,47 +76,55 @@ void setup() {
 }
 
 /*-------------------------
- keyboard / punch listener
+ TIME CALC
  -------------------------*/
 
-void keyPressed() {
-
-  if (key == 'p') {
-    inputActionHandler("punch");
-  }
-
-  if (key == 'o') {
-    inputActionHandler("increase");
-  }
-
-  if (key == 'l') {
-    inputActionHandler("decrease");
-  }
-
-  if (key == 'f') {
-    inputActionHandler("flick");
-  }
-}
-
 void setMinutes(int minutes) {
-  if (minutes <= 0) {
-    timerMinutes = 0;
-  } else if (minutes >= 60){
-    timerMinutes = 60;
-  } else {
-    timerMinutes = minutes;
+  
+  //positive minute input
+  if (minutes >= 0) {
+    if (minutes > 60) {
+      timerMinutes = 60;
+    }else {
+      timerMinutes = minutes;
+    }
   }
+  //negative minute input
+  else {
+    if (minutes > -59){
+      timerMinutes = 61 - Math.abs(minutes);
+    } else {
+      timerMinutes = 0;
+    }
+  }
+  println(minutes + " = " + timerMinutes);
+
 }
+
 
 void setSeconds(int seconds) {
-  if (seconds <= 0) {
-    timerSeconds = 0;
-  } else if (seconds >= 60){
-    timerSeconds = 60;
-  } else {
-    timerSeconds = seconds;
+  
+  //positive second input
+  if (seconds >= 0) {
+    if (seconds > 59) {
+      timerSeconds = 59;
+    }else {
+      timerSeconds = seconds;
+    }
+  }
+  //negative second input
+  else {
+    if (seconds > -59){
+      timerSeconds = 59 + seconds;
+    } else {
+      timerSeconds = 0;
+    }
   }
 }
+
+/*-------------------------
+INPUT
+ -------------------------*/
 
 void inputActionHandler(String action) {
 
@@ -217,7 +159,7 @@ void inputActionHandler(String action) {
     // NOTE:
     // 2 (animation) will end after 1 second and go to 3 (adjust) automatically
     // 4 (running) will end automatically and go to 6 (alam) when counter reaches zero.
-    
+
     if (appStateMain == 5) {
       appStateMain = 4;
     } else if (appStateMain == 6) {
@@ -225,17 +167,16 @@ void inputActionHandler(String action) {
     } else {
       appStateMain++;
     }
+  }
+
+  if (action == "flick") {
+
+    if (appStateMain == 5 || appStateMain == 6) {
+      appStateMain = 3;
     }
+  }
 
-    if (action == "flick") {
-
-      if (appStateMain == 5 || appStateMain == 6) {
-        appStateMain = 3;
-      }
-    }
-
-    println(">> appStateMain = " + appStateMain);
-
+  println(">> appStateMain = " + appStateMain);
 }
 
 /*-------------------------
@@ -286,135 +227,78 @@ void draw() {
 
     // timer reached 0 and plays alarm
   case 6:
-    printStatus("Piep!");
+    printStatus("TIMER FINISHED!");
     stepAlarm();
     break;
   }
 
-  /*-------------------------
-   INTERACTION
-   -------------------------*/
-   
-   for (Hand hand : leap.getHands()) {
-      
-      leapHandHeight = hand.getPosition().y;
-      leapHandXPos = hand.getPosition().x;
-      leapHandZPos = hand.getPosition().z;
-      leapHandPinch = hand.getPinchStrength();
+  for (Hand hand : leap.getHands()) {
+    leapHandHeight = hand.getPosition().y;
+    leapHandXPos = hand.getPosition().x;
+    leapHandZPos = hand.getPosition().z;
+    leapHandPinch = hand.getPinchStrength();
+  }
 
-   }
-   
-   
-   punchDetector();
+  punchDetector();
 }
+
+/*-------------------------
+ DETECT GESTURES
+ -------------------------*/
 
 // permanently check leap motion input for punch gesture
 // it saves the height of the stabilizedHand to an array
 // in that array, the last 5 positions are kept
 // if there is a difference in height >60, this is considered a punch gesture
-boolean punchDetector(){
-  
+void punchDetector() {
+
   // this should not be checked every frame
-  // but only every 10 milliseconds
-  
-  
-  //vorherige zeit < jetzige zeit minus hundert
-  //ist die letzte ausführung 100 ms her? -> dann neu! 
-  if(leapPunchDetectorDelay < millis() - 200){
-    
+  // but only every 0.2 seconds
+  if (leapPunchDetectorDelay < millis() - 200) {
+
     leapPunchDetectorDelay = millis();
-    
-    
-      
-      for(int i = 4; i >= 0; i--){
-        if(i == 0){
-          leapHandTracker[i] = leapHandHeight;
-          //println(i + " " + leapHandHeight);
-        }
-        // on position 1-4, store positions of last 4 frames
-        else{
-          leapHandTracker[i] = leapHandTracker[i-1];
-          //println(i + " " + leapHandTracker[i]);
-        }
+
+    for (int i = 4; i >= 0; i--) {
+      if (i == 0) {
+        leapHandTracker[i] = leapHandHeight;
+        //println(i + " " + leapHandHeight);
       }
-    
+      // on position 1-4, store positions of last 4 frames
+      else {
+        leapHandTracker[i] = leapHandTracker[i-1];
+        //println(i + " " + leapHandTracker[i]);
+      }
+    }
+
     //compare values in the array
     //only if array is fully set
-    if(leapHandTracker[4] !=0){
-      for (int i=0; i<5; i++){ 
+    if (leapHandTracker[4] !=0) {
+      for (int i=0; i<5; i++) { 
         //der jüngste muss kleiner sein als einer der vorherigen 4
-        if(leapHandTracker[0] - 150 > leapHandTracker[i]){
+        if (leapHandTracker[0] - 150 > leapHandTracker[i]) {
           println("PUNCH!!!!Punch!!!!PUNCH!!!!");
-          for (int j=0; j<5; j++){
+          for (int j=0; j<5; j++) {
             leapHandTracker[j] = 0f;
           }
           inputActionHandler("punch");
-      }
         }
-          
       }
+    }
   }
-   /* 
-    println(" ");
-    println("- - - -");
-    
-    leapPunchDetectorDelay = millis();
-    
-    for (Hand hand : leap.getHands()) {
-      
-      PVector handStabilized = hand.getStabilizedPosition();
-      
-      for(int i = leapHandTracker.length-1; i >= 0; i--){
-        // on position 0, store current position
-        if(i == 0){
-          leapHandTracker[i] = handStabilized.y;
-          println(handStabilized.y);
-        }
-        // on position 1-4, store positions of last 4 frames
-        else{
-            leapHandTracker[i] = leapHandTracker[i-1];
-            println(leapHandTracker[i-1]);
-        }
-        
-        // now that we have the current + the last 4 states in the array
-        // check if there is a difference > 60 between any of them
-        if(leapHandTracker[i] > handStabilized.y + 60){
-          if(leapPunchDelay < millis() - 100){
-            println("detected but ignored due to delay.");
-          }else{
-            println(" ");
-            println("!!!!!PUNCH!!!!! > " + leapHandTracker[i] + " <> " + handStabilized.y);
-            println(" ");
-            // avoid multiple triggering
-            leapPunchDelay = millis();
-          }
-        }
-      }
-    }
-    
-    
-    
-    // remember highest position of hand
-    if(leapHandTracker < hand.getStabilizedPosition().y){
-      leapHandTracker = hand.getStabilizedPosition().y;
-    }
-    */
-  
-  return true;
-}
-
-void printStatus(String status) {
-  noStroke();
-  fill(255);
-  rect(0, 0, 120, 20); 
-  stroke(153);
-  fill(100);
-  text(status, 10, 10);
 }
 
 /*-------------------------
- FUNCTIONALITY
+ GRAPHICAL OUTPUT
  -------------------------*/
+
+void printStatus(String status) {
+  noStroke();
+  fill(25);
+  rect(0, 0, 120, 45); 
+  //stroke(153);
+  fill(255);
+  text(status, 25, 25);
+}
 
 // wake up animation
 // this is called every frame as long as appStateMain == 2
@@ -451,68 +335,26 @@ void stepStart() {
 // this is called every frame as long as appStateMain is 3 (minutes) or 4 (seconds)
 void stepAdjust() {
 
-  /*
-  int currentColor = 0;
-   int currentlyAdjusting = timerMinutes;
-   
-   // make this work for seconds and minutes
-   if(appStateMain == 3){
-   currentlyAdjusting = timerMinutes;
-   currentColor = 255; //(red for minutes)
-   }
-   
-   if(appStateMain == 4){
-   currentlyAdjusting = timerSeconds;
-   currentColor = 200; //(green for seconds)
-   }
-   
-   // LEDs 0 to x draw colorful
-   for (int i = 0; i < currentlyAdjusting; i++) {
-   LEDs[i].setColor(currentColor, 255, 255);
-   }
-   
-   // LEDs x to 60, draw white
-   for (int j = currentlyAdjusting; j < 60; j++) {
-   LEDs[j].setToWhite();
-   }
-   */
-    
   // if hand is in pinched gesture
-  if(leapHandPinch >= 0.9){
-    
+  if (leapHandPinch >= 0.9) {
+
     // if reference coordinates were set already
-    if(leapHandIsPinched) {
-      
-      int Ztemp = (int)(leapHandZPos - leapPinchZPosNull);
-      int Xtemp = (int)(leapHandXPos - leapPinchXPosNull);
-      
-      println (Xtemp);
-      
-      setSeconds((int)(Ztemp*1.8));
-      setMinutes((int)(Xtemp/3.5));
-      
-      //setSeconds((int)map(Ztemp, -80, 80, 0, 59));
-      //setMinutes((int)map(Xtemp, 200, 800, 0, 59));
+    if (leapHandIsPinched) {
+      setSeconds((int)((leapHandZPos - leapPinchZPosNull)/0.5));
+      setMinutes((int)((leapHandXPos - leapPinchXPosNull)/3.5));
     }
-    
+
     // if pinch just happened, set coordinates
-    else{
+    else {
       leapHandIsPinched = true;
       leapPinchZPosNull = leapHandZPos;
       leapPinchXPosNull = leapHandXPos;
     }
-  }else{
+  } else {
     leapHandIsPinched = false;
   }
 
-  
-
   drawTimeOnRing();
-  //background(255);
-}
-
-public void listen() {
-  // do nothing, wait for hand input
 }
 
 // showing the remaining time on the ring
@@ -570,13 +412,10 @@ public void stepAlarm() {
 
 
 
-/*
--------
+/*-------
  LEAP
- -------
- */
- 
- 
+-------*/
+
 void leapOnSwipeGesture(SwipeGesture g, int state) {
   int     id               = g.getId();
   Finger  finger           = g.getFinger();
@@ -599,57 +438,52 @@ void leapOnSwipeGesture(SwipeGesture g, int state) {
   }
 }
 
-
-
 // DISPLAY ONLY
 // --> this function does not modify ANY variables
-void drawTimeOnRing(){
-  
+void drawTimeOnRing() {
+
   //draw color for minutes 
   for (int i = 0; i < timerMinutes; i++) {
     LEDs[i].setColor(0, 255, 255);
   }
-  
+
   // if adjusting, for rest of ring, adjust according to dropzone accuracy
   currentBrightness = 51;
-  
-  if(appStateMain == 3){
-    
-    if(leapHandHeight < 400 && leapHandHeight > 200){
-      if (leapHandHeight > 300){
-        currentBrightness = (int)map(leapHandHeight,301,400,255,51);
-        }
-        else {
-          currentBrightness = (int)map(leapHandHeight,200,301,51,255);
-        }
+
+  if (appStateMain == 3) {
+
+    if (leapHandHeight < 400 && leapHandHeight > 200) {
+      if (leapHandHeight > 300) {
+        currentBrightness = (int)map(leapHandHeight, 301, 400, 255, 51);
+      } else {
+        currentBrightness = (int)map(leapHandHeight, 200, 301, 51, 255);
       }
+    }
   }
-  
+
   for (int j = timerMinutes; j < 60; j++) {
     LEDs[j].setColor(0, 0, currentBrightness);
   }
-  
+
   // timerSeconds
   // when running, at least 1 minute left, for example 6:42 ?
   // --> draw 6 red LEDs for minutes (permanently)
   // --> draw 1 single green LED at position 42 for seconds
   if (timerMinutes <= 0 && (appStateMain == 4 || appStateMain == 5)) {
-    
+
     for (int j = 0; j < timerSeconds; j++) {
       LEDs[j].setColor(100, 255, 255);
     }
-    
+
     for (int j = timerSeconds; j < 60; j++) {
       LEDs[j].setColor(0, 0, currentBrightness);
     }
-  }else{
+  } else {
     LEDs[timerSeconds].setColor(100, 255, 255);
   }
-    
+
   // when running, draw cool pointer for current 1/60 second
-  if(appStateMain == 4){
+  if (appStateMain == 4) {
     LEDs[timerCurrentFrame].setColor(120, 255, 255);
   }
-
-
 }
