@@ -298,6 +298,9 @@ boolean punchDetector(){
   // this should not be checked every frame
   // but only every 10 milliseconds
   
+  int handLow = 1000;
+  int handHigh = 0;
+  
   if(leapPunchDetectorDelay < millis() - 100){
     
     leapPunchDetectorDelay = millis();
@@ -305,9 +308,6 @@ boolean punchDetector(){
     for (Hand hand : leap.getHands()) {
       
       PVector handStabilized = hand.getStabilizedPosition();
-      
-      int handLow = 1000;
-      int handHigh = 0;
       
       for(int i = 4; i >= 0; i--){
         if(i == 0){
@@ -321,6 +321,24 @@ boolean punchDetector(){
         }
       }
     
+    }
+    
+    //compare values in the array
+    for (int i=0; i<5; i++){
+      if(leapHandTracker[i] != 0f && leapHandTracker[i] > handHigh)
+        handHigh = (int)leapHandTracker[i];
+        
+      if(leapHandTracker[i] != 0f && leapHandTracker[i] < handLow)
+        handLow = (int)leapHandTracker[i];
+    }
+    
+    println("highest: " + (int)handHigh + " / lowest: " + (int)handLow);
+    
+    if((handHigh - handLow) > 150){
+      println("PUNCH!!!!Punch!!!!PUNCH!!!!");
+      for (int i=0; i<5; i++){
+        leapHandTracker[i] = 0f;
+      }
     }
   }
    /* 
