@@ -75,7 +75,10 @@ float[] leapHandTracker;
 float leapHandHeight;
 float leapHandPinch;
 float leapHandXPos;
+float leapPinchXPosNull;
 float leapHandZPos;
+float leapPinchZPosNull;
+boolean leapHandIsPinched;
 
 // virtual ring setup
 float lg_diam;
@@ -86,6 +89,7 @@ float sm_diam;
 // leap helpers
 int previousPosition = 0;
 int currentPosition = 0;
+int currentBrightness = 51;
 
 // overall status of the app
 int appStateMain = 0; 
@@ -108,7 +112,7 @@ LED[] LEDs;
 void setup() {
 
   // set the stage
-  size(600, 600, P3D);
+  size(600, 600);
   background(25);
   colorMode(HSB, 255);
   frameRate(60);
@@ -121,6 +125,7 @@ void setup() {
   leap = new LeapMotion(this).allowGestures();
   leapHandTracker = new float[5];
   leapPunchDelay = leapPunchDetectorDelay = millis();
+  leapHandIsPinched = false;
 
   // create simulaton
   lg_diam =  550; // large circle's diameter
@@ -292,12 +297,10 @@ void draw() {
    
    for (Hand hand : leap.getHands()) {
       
-      leapHandHeight = hand.getStabilizedPosition().y;
-      leapHandXPos = hand.getStabilizedPosition().x;
-      leapHandZPos = hand.getStabilizedPosition().z;
-       leapHandPinch = hand.getPinchStrength();
-       println(leapHandPinch);
-             println("ZZZZZ: " + leapHandZPos);
+      leapHandHeight = hand.getPosition().y;
+      leapHandXPos = hand.getPosition().x;
+      leapHandZPos = hand.getPosition().z;
+      leapHandPinch = hand.getPinchStrength();
 
    }
    
@@ -334,7 +337,6 @@ boolean punchDetector(){
           //println(i + " " + leapHandTracker[i]);
         }
       }
-        println("---------");
     
     //compare values in the array
     //only if array is fully set
@@ -475,17 +477,37 @@ void stepAdjust() {
    }
    */
     
-    if (appStateMain == 3 && leapHandPinch >= 0.9) {
-      //println(fingerIndex.getPosition().z + " / " + (int)fingerIndex.getPosition().z  + " / " + (int(fingerIndex.getPosition().z / 3)));
+  // if hand is in pinched gesture
+  if(leapHandPinch >= 0.9){
+    
+    // if reference coordinates were set already
+    if(leapHandIsPinched) {
       
-      //setMinutes((int)(fingerIndex.getPosition().x / 8));
-      setSeconds((int)map(leapHandZPos, -100, 100, 0, 59));
+      int Ztemp = (int)(leapHandZPos - leapPinchZPosNull);
+      int Xtemp = (int)(leapHandXPos - leapPinchXPosNull);
       
-      setMinutes((int)map(leapHandXPos, 10, 990, 0, 59));
+      println (Xtemp);
+      
+      setSeconds((int)(Ztemp*1.8));
+      setMinutes((int)(Xtemp/3.5));
+      
+      //setSeconds((int)map(Ztemp, -80, 80, 0, 59));
+      //setMinutes((int)map(Xtemp, 200, 800, 0, 59));
     }
+    
+    // if pinch just happened, set coordinates
+    else{
+      leapHandIsPinched = true;
+      leapPinchZPosNull = leapHandZPos;
+      leapPinchXPosNull = leapHandXPos;
+    }
+  }else{
+    leapHandIsPinched = false;
+  }
+
   
 
-  drawTimeOnRing(timerMinutes, timerSeconds);
+  drawTimeOnRing();
   //background(255);
 }
 
@@ -512,7 +534,7 @@ public void stepRun() {
     }
   }
 
-  drawTimeOnRing(timerMinutes, timerSeconds);
+  drawTimeOnRing();
 }
 
 // alarm function to call when countdown reached 0
@@ -581,57 +603,53 @@ void leapOnSwipeGesture(SwipeGesture g, int state) {
 
 // DISPLAY ONLY
 // --> this function does not modify ANY variables
-void drawTimeOnRing(int minutes, int seconds){
+void drawTimeOnRing(){
   
-  // at least 1 minute left, for example 6:42 ?
+  //draw color for minutes 
+  for (int i = 0; i < timerMinutes; i++) {
+    LEDs[i].setColor(0, 255, 255);
+  }
+  
+  // if adjusting, for rest of ring, adjust according to dropzone accuracy
+  currentBrightness = 51;
+  
+  if(appStateMain == 3){
+    
+    if(leapHandHeight < 400 && leapHandHeight > 200){
+      if (leapHandHeight > 300){
+        currentBrightness = (int)map(leapHandHeight,301,400,255,51);
+        }
+        else {
+          currentBrightness = (int)map(leapHandHeight,200,301,51,255);
+        }
+      }
+  }
+  
+  for (int j = timerMinutes; j < 60; j++) {
+    LEDs[j].setColor(0, 0, currentBrightness);
+  }
+  
+  // timerSeconds
+  // when running, at least 1 minute left, for example 6:42 ?
   // --> draw 6 red LEDs for minutes (permanently)
   // --> draw 1 single green LED at position 42 for seconds
-  if (minutes > 0) {
-
-    //draw color for minutes 
-    for (int i = 0; i < minutes; i++) {
-      LEDs[i].setColor(0, 255, 255);
-    }
-
-    //draw leapHandHeight for the rest of the circle
-    int setBrightness = 0;
-    if(leapHandHeight > 400 || leapHandHeight < 200){
-      setBrightness = 51;
-    }else{
-      if (leapHandHeight > 300){
-        setBrightness = (int)map(leapHandHeight,301,400,255,51);
-      }
-      else {
-        setBrightness = (int)map(leapHandHeight,200,301,51,255);
-      }
+  if (timerMinutes <= 0 && (appStateMain == 4 || appStateMain == 5)) {
+    
+    for (int j = 0; j < timerSeconds; j++) {
+      LEDs[j].setColor(100, 255, 255);
     }
     
-    for (int j = minutes; j < 60; j++) {
-      LEDs[j].setColor(0, 0, setBrightness);
-    }
-
-    //draw color for seconds
-    LEDs[seconds].setColor(100, 255, 255);
-    
-  } 
-  
-  // only seconds left, for example 00:32 ?
-  // --> draw 32 green LEDs for seconds
-  else {
-
-    //draw color for seconds 
-    for (int i = 0; i < timerSeconds; i++) {
-      LEDs[i].setColor(100, 255, 255);
-    }
-
-    //draw white for the rest of the circle
     for (int j = timerSeconds; j < 60; j++) {
-      LEDs[j].setColor(0, 0, 255);
+      LEDs[j].setColor(0, 0, currentBrightness);
     }
+  }else{
+    LEDs[timerSeconds].setColor(100, 255, 255);
   }
-
-  //draw cool pointer for current 1/60 second
-  LEDs[timerCurrentFrame].setColor(120, 255, 255);
+    
+  // when running, draw cool pointer for current 1/60 second
+  if(appStateMain == 4){
+    LEDs[timerCurrentFrame].setColor(120, 255, 255);
+  }
 
 
 }
