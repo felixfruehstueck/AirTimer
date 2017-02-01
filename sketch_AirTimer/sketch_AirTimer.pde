@@ -253,8 +253,8 @@ void draw() {
 void punchDetector() {
 
   // this should not be checked every frame
-  // but only every 0.2 seconds
-  if (leapPunchDetectorDelay < millis() - 200) {
+  // but only every 0.12 seconds
+  if (leapPunchDetectorDelay < millis() - 120) {
 
     leapPunchDetectorDelay = millis();
 
@@ -275,7 +275,7 @@ void punchDetector() {
     if (leapHandTracker[4] !=0) {
       for (int i=0; i<5; i++) { 
         //der jüngste muss kleiner sein als einer der vorherigen 4
-        if (leapHandTracker[0] - 150 > leapHandTracker[i]) {
+        if (leapHandTracker[0] - 100 > leapHandTracker[i]) {
           println("PUNCH!!!!Punch!!!!PUNCH!!!!");
           for (int j=0; j<5; j++) {
             leapHandTracker[j] = 0f;
@@ -444,7 +444,7 @@ void drawTimeOnRing() {
 
   //draw color for minutes 
   for (int i = 0; i < timerMinutes; i++) {
-    LEDs[i].setColor(0, 255, 255);
+    LEDs[i].setColor(65, 235, 185);
   }
 
   // if adjusting, for rest of ring, adjust according to dropzone accuracy
@@ -472,18 +472,18 @@ void drawTimeOnRing() {
   if (timerMinutes <= 0 && (appStateMain == 4 || appStateMain == 5)) {
 
     for (int j = 0; j < timerSeconds; j++) {
-      LEDs[j].setColor(100, 255, 255);
+      LEDs[j].setColor(90, 255, 200);
     }
 
     for (int j = timerSeconds; j < 60; j++) {
       LEDs[j].setColor(0, 0, currentBrightness);
     }
   } else {
-    LEDs[timerSeconds].setColor(100, 255, 255);
+    LEDs[timerSeconds].setColor(10, 235, 220);
   }
 
   // when running, draw cool pointer for current 1/60 second
   if (appStateMain == 4) {
-    LEDs[timerCurrentFrame].setColor(120, 255, 255);
+    LEDs[timerCurrentFrame].setColor(170, 215, 235);
   }
 }
