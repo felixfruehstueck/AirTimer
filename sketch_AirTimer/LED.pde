@@ -10,7 +10,7 @@ class LED {
     id = i;
     angle = i * TWO_PI / LEDs.length;
     x = width/2.0 + cos(angle - radians(90)) * lg_rad;
-    y = width/2.0 + sin(angle - radians(90)) * lg_rad;
+    y = height/2.0 + sin(angle - radians(90)) * lg_rad;
     noStroke();
     ellipse(x, y, sm_diam, sm_diam);
   }

@@ -46,8 +46,9 @@ LED[] LEDs;
 void setup() {
 
   // set the stage
-  size(600, 600);
+  //size(600, 600);
   background(25);
+  fullScreen();
   colorMode(HSB, 255);
   frameRate(60);
   smooth();
@@ -254,7 +255,7 @@ void punchDetector() {
 
   // this should not be checked every frame
   // but only every 0.12 seconds
-  if (leapPunchDetectorDelay < millis() - 120) {
+  if (leapPunchDetectorDelay < millis() - 100) {
 
     leapPunchDetectorDelay = millis();
 
@@ -274,13 +275,16 @@ void punchDetector() {
     //only if array is fully set
     if (leapHandTracker[4] !=0) {
       for (int i=0; i<5; i++) { 
+        
         //der jüngste muss kleiner sein als einer der vorherigen 4
-        if (leapHandTracker[0] - 100 > leapHandTracker[i]) {
+        if (leapHandTracker[0] - 300  > leapHandTracker[i]) {
           println("PUNCH!!!!Punch!!!!PUNCH!!!!");
+          println(leapHandTracker);
           for (int j=0; j<5; j++) {
             leapHandTracker[j] = 0f;
           }
           inputActionHandler("punch");
+          break;
         }
       }
     }
@@ -341,7 +345,7 @@ void stepAdjust() {
     // if reference coordinates were set already
     if (leapHandIsPinched) {
       setSeconds((int)((leapHandZPos - leapPinchZPosNull)/0.5));
-      setMinutes((int)((leapHandXPos - leapPinchXPosNull)/3.5));
+      setMinutes((int)((leapHandXPos - leapPinchXPosNull)/10));
     }
 
     // if pinch just happened, set coordinates
@@ -425,16 +429,17 @@ void leapOnSwipeGesture(SwipeGesture g, int state) {
   float   speed            = g.getSpeed();
   long    duration         = g.getDuration();
   float   durationSeconds  = g.getDurationInSeconds();
-
-  switch(state) {
-  case 1: // Start
-    break;
-  case 2: // Update
-    break;
-  case 3: // Stop
-    println("SwipeGesture: " + id);
-    inputActionHandler("flick");
-    break;
+  
+  println("SWIPE: " + id + " / " + position.x + " / " + positionStart.x);
+  
+  if(position.x < positionStart.x - 500){
+    println("SWIPE SWIPE SWIPE");
+    if (leapHandTracker[4] !=0){
+      println("SwipeGesture: " + id);
+      setSeconds(0);
+      setMinutes(0);
+      inputActionHandler("flick");
+    }
   }
 }
 
@@ -452,17 +457,21 @@ void drawTimeOnRing() {
 
   if (appStateMain == 3) {
 
-    if (leapHandHeight < 400 && leapHandHeight > 200) {
-      if (leapHandHeight > 300) {
-        currentBrightness = (int)map(leapHandHeight, 301, 400, 255, 51);
+    //println(leapHandHeight);
+    
+    if (leapHandHeight < 700 && leapHandHeight > 300) {
+      if (leapHandHeight > 500) {
+        currentBrightness = (int)map(leapHandHeight, 501, 700, 255, 51);
       } else {
-        currentBrightness = (int)map(leapHandHeight, 200, 301, 51, 255);
+        currentBrightness = (int)map(leapHandHeight, 300, 501, 51, 255);
       }
     }
   }
 
   for (int j = timerMinutes; j < 60; j++) {
-    LEDs[j].setColor(0, 0, currentBrightness);
+    /*println(j);
+    println(timerMinutes);*/
+    LEDs[Math.abs(j)].setColor(0, 0, currentBrightness);
   }
 
   // timerSeconds
